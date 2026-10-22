@@ -1,0 +1,15 @@
+# Procesamiento y extracción de PDFs
+
+pdfplumber
+
+
+
+# Procesamiento de Lenguaje Natural (NLP)
+
+nltk
+
+
+
+# Generación de gráficas y validación visual
+
+matplotlib
