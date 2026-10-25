@@ -1,60 +1,76 @@
 import pdfplumber
 import re
 from src.config import DATA_DIR, STOP_WORDS
+# Eliminamos la importación de Counter para hacerlo de forma manual
 
-def extract_text_from_pdf(pdf_path):
-    """
-    Abre un PDF y extrae todo su texto página por página.
-    """
-    full_text = ""
+def extraerTextoPdf(rutaPdf):
+    textoCompleto = ""
     try:
-        with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
-                text = page.extract_text()
-                if text:
-                    full_text += text + "\n"
-        return full_text
-    except Exception as e:
-        print(f"Error al leer el archivo {pdf_path}: {e}")
+        # Abrimos el archivo
+        with pdfplumber.open(rutaPdf) as pdf:
+            # Recorremos cada página una por una
+            for pagina in pdf.pages:
+                texto = pagina.extract_text()
+                # Si la página tiene texto, lo pegamos al total
+                if texto:
+                    textoCompleto = textoCompleto + texto + "\n"
+        return textoCompleto
+    except Exception as error:
+        print(f"Error al leer el archivo {rutaPdf}: {error}")
         return None
 
-def get_abstract_only(full_text):
-    """
-    Aísla el Abstract soportando formatos de doble columna (Elsevier/IEEE).
-    Detecta letras espaciadas (A B S T R A C T) y limpia etiquetas de Keywords.
-    """
-    if not full_text:
+def aislarAbstract(textoCompleto):
+    # Validamos que sí haya texto
+    if not textoCompleto:
         return None
         
-    # El patrón busca 'abstract' normal O espaciado (a\s*b\s*s\s*t\s*r\s*a\s*c\s*t).
-    # Se detiene al encontrar cualquier variación de "1. Introduction" o "Introduction".
-    pattern = r"(?:a\s*b\s*s\s*t\s*r\s*a\s*c\s*t|abstract)\s*(.*?)(?:\n\s*1\.?\s*introduction|\n\s*introduction)"
+    # Patrón para buscar la palabra Abstract y detenerse en Introduction o Keywords
+    patron = r"(?:a\s*b\s*s\s*t\s*r\s*a\s*c\s*t|abstract)\s*(.*?)(?:\n\s*1\.?\s*introduction|\n\s*introduction)"
     
-    match = re.search(pattern, full_text, re.DOTALL | re.IGNORECASE)
+    # Ejecutamos la búsqueda ignorando mayúsculas
+    coincidencia = re.search(patron, textoCompleto, re.DOTALL | re.IGNORECASE)
     
-    if match:
-        texto = match.group(1).strip()
-        # Limpiamos la palabra "Keywords:" y saltos de línea extraños que se hayan colado
+    if coincidencia:
+        # Extraemos solo el fragmento encontrado y le quitamos los espacios de los bordes
+        texto = coincidencia.group(1).strip()
+        # Por seguridad, borramos la palabra keywords si se coló al final
         texto = re.sub(r'(?i)keywords:?', '', texto)
         return texto
     else:
         return "No se pudo aislar el Abstract con la regla actual."
         
-def clean_text(text):
-    """
-    Convierte a minúsculas, elimina puntuación y quita stop words.
-    """
-    if not text:
+def limpiarTexto(texto):
+    if not texto:
         return []
         
-    # 1. Convertir a minúsculas
-    text = text.lower()
+    # 1. Todo a minúsculas
+    textoMinusculas = texto.lower()
     
-    # 2. Eliminar todo lo que no sea letras (A-Z) o espacios
-    text = re.sub(r'[^a-z\s]', '', text)
+    # 2. Borrar números y signos de puntuación (dejamos solo letras y espacios)
+    textoLimpio = re.sub(r'[^a-z\s]', '', textoMinusculas)
     
-    # 3. Separar en palabras y filtrar stop words
-    words = text.split()
-    clean_words = [word for word in words if word not in STOP_WORDS and len(word) > 2]
+    # 3. Separar el párrafo en una lista de palabras individuales
+    palabras = textoLimpio.split()
     
-    return clean_words
+    # 4. Filtrar las stop words con un ciclo normal
+    palabrasValidas = []
+    for palabra in palabras:
+        if palabra not in STOP_WORDS and len(palabra) > 2:
+            palabrasValidas.append(palabra)
+            
+    return palabrasValidas
+
+def contarFrecuencias(listaPalabras):
+    # Creamos un diccionario vacío
+    frecuencias = {}
+    
+    # Recorremos la lista gigante de palabras
+    for palabra in listaPalabras:
+        # Si la palabra ya existe en el diccionario, le sumamos 1 a su conteo
+        if palabra in frecuencias:
+            frecuencias[palabra] = frecuencias[palabra] + 1
+        # Si es la primera vez que la vemos, la guardamos con un conteo de 1
+        else:
+            frecuencias[palabra] = 1
+            
+    return frecuencias
